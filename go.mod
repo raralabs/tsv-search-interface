@@ -1,4 +1,4 @@
-module github.com/raralabs/rara-search
+module github.com/raralabs/myra-search
 
 go 1.19
 
