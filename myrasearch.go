@@ -6,9 +6,9 @@ import (
 	"log"
 
 	"github.com/joho/godotenv"
-	"github.com/raralabs/rara-search/pkg/models"
-	"github.com/raralabs/rara-search/pkg/utils"
-	"github.com/raralabs/rara-search/pkg/utils/db/pgdb"
+	"github.com/raralabs/myra-search/pkg/models"
+	"github.com/raralabs/myra-search/pkg/utils"
+	"github.com/raralabs/myra-search/pkg/utils/db/pgdb"
 	"gorm.io/gorm"
 )
 

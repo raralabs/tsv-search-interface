@@ -5,7 +5,7 @@ import (
 	"math/rand"
 	"sync"
 
-	"github.com/raralabs/rara-search/pkg/client"
+	"github.com/raralabs/myra-search/pkg/client"
 )
 
 func main() {
