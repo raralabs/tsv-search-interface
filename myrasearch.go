@@ -44,7 +44,7 @@ func (s Client) Search(slug, search string, pagination ...int) ([]models.Respons
 	}
 	var model []models.ResponseSearchIndex
 	query := fmt.Sprintf("SELECT id, table_info, action_info FROM %s.search_indices ", slug)
-	err := s.db.Debug().Raw(query+" WHERE tsv_text @@ to_tsquery(? || ':*') ORDER BY id OFFSET ? LIMIT ?", search, offset, limit).Scan(&model).Error
+	err := s.db.Debug().Raw(query+" WHERE tsv_text @@ websearch_to_tsquery(?) ORDER BY id OFFSET ? LIMIT ?", search, offset, limit).Scan(&model).Error
 	return model, err
 }
 
