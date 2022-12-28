@@ -26,13 +26,13 @@ type Client struct {
 }
 
 // NewClient initializes the Client and database and returns the ClientInterface instance.
-func NewClient() ClientInterface {
+func NewClient(dsn string) ClientInterface {
 	err := godotenv.Load()
 	if err != nil {
 		log.Fatal("Error loading .env file")
 	}
 	return Client{
-		db: pgdb.ConnectDatabase(),
+		db: pgdb.ConnectDatabase(dsn),
 	}
 }
 
