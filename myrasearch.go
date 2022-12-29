@@ -4,6 +4,7 @@ import (
 	"errors"
 	"fmt"
 	"log"
+	"strings"
 
 	"github.com/joho/godotenv"
 	"github.com/raralabs/myra-search/pkg/models"
@@ -42,9 +43,12 @@ func (s Client) Search(slug, search string, pagination ...int) ([]models.Respons
 	if search == "" {
 		return []models.ResponseSearchIndex{}, errors.New("please provide the search string")
 	}
+	search = strings.TrimSpace(search)
+	search = strings.Join(strings.Fields(search), " ")
+	search = strings.ReplaceAll(search, " ", ":*&")
 	var model []models.ResponseSearchIndex
 	query := fmt.Sprintf("SELECT id, table_info, action_info FROM %s.search_indices ", slug)
-	err := s.db.Debug().Raw(query+" WHERE tsv_text @@ websearch_to_tsquery(?) ORDER BY id OFFSET ? LIMIT ?", search, offset, limit).Scan(&model).Error
+	err := s.db.Raw(query+" WHERE tsv_text @@ to_tsquery(? || ':*') ORDER BY id OFFSET ? LIMIT ?", search, offset, limit).Scan(&model).Error
 	return model, err
 }
 
