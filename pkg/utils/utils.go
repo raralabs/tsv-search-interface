@@ -26,7 +26,7 @@ func Pagination(opts ...int) (int, int) {
 
 	if len(opts) >= 1 {
 		if opts[0] > 1 {
-			offset = opts[0] * limit
+			offset = (opts[0] - 1) * limit
 		}
 	}
 	return offset, limit
