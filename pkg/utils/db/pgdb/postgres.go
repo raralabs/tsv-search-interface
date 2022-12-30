@@ -3,6 +3,7 @@ package pgdb
 import (
 	"gorm.io/driver/postgres"
 	"gorm.io/gorm"
+	"log"
 )
 
 // ConnectDatabase returns the database instance
@@ -11,7 +12,7 @@ import (
 func ConnectDatabase(dsn string) *gorm.DB {
 	db, err := gorm.Open(postgres.Open(dsn), &gorm.Config{})
 	if err != nil {
-		panic(err)
+		log.Println(err)
 	}
 	return db
 }

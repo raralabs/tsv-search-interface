@@ -3,7 +3,6 @@ package myra_search
 import (
 	"errors"
 	"fmt"
-	"log"
 	"strings"
 
 	"github.com/joho/godotenv"
@@ -30,7 +29,7 @@ type Client struct {
 func NewClient(dsn string) ClientInterface {
 	err := godotenv.Load()
 	if err != nil {
-		log.Fatal("Error loading .env file")
+		fmt.Println("Error loading .env file")
 	}
 	return Client{
 		db: pgdb.ConnectDatabase(dsn),
@@ -40,11 +39,11 @@ func NewClient(dsn string) ClientInterface {
 // Search takes the slug and search string as input for global searching the value and returns the multiple matching recoreds.
 func (s Client) Search(slug, search string, pagination ...int) ([]models.ResponseSearchIndex, error) {
 	offset, limit := utils.Pagination(pagination...)
+	search = strings.TrimSpace(search)
+	search = strings.Join(strings.Fields(search), " ")
 	if search == "" {
 		return []models.ResponseSearchIndex{}, errors.New("please provide the search string")
 	}
-	search = strings.TrimSpace(search)
-	search = strings.Join(strings.Fields(search), " ")
 	search = strings.ReplaceAll(search, " ", ":*&")
 	var model []models.ResponseSearchIndex
 	query := fmt.Sprintf("SELECT id, table_info, action_info FROM %s.search_indices ", slug)
@@ -66,7 +65,7 @@ func (s Client) SearchByField(slug string, fieldSearch map[string]interface{}, p
 			query += fmt.Sprintf("search_field->>'%s' like '%v%s' ", k, v, "%")
 		}
 	}
-	err := s.db.Debug().Raw(query+" OFFSET ? LIMIT ?", offset, limit).Scan(&model).Error
+	err := s.db.Raw(query+" OFFSET ? LIMIT ?", offset, limit).Scan(&model).Error
 	return model, err
 }
 
@@ -84,7 +83,7 @@ func (s Client) Index(slug string, uid string, tableInfo string, action map[stri
 	}
 	query := fmt.Sprintf("INSERT INTO %s.search_indices(id,table_info,action_info,tsv_text, search_field)", slug)
 	var id string
-	err := s.db.Debug().
+	err := s.db.
 		Raw(query+" VALUES(?,?,?,to_tsvector(?),?) ON CONFLICT (id,table_info) DO UPDATE SET action_info=?, search_field=?, tsv_text=to_tsvector(?) RETURNING id",
 			uid,
 			tableInfo,
@@ -105,7 +104,7 @@ func (s Client) Index(slug string, uid string, tableInfo string, action map[stri
 func (s Client) Delete(slug, uid, tableInfo string) (string, error) {
 	var id string
 	query := fmt.Sprintf("DELETE FROM %s.search_indices", slug)
-	err := s.db.Debug().Raw(query+" WHERE id = ? and table_info = ? RETURNING id", uid, tableInfo).Scan(&id).Error
+	err := s.db.Raw(query+" WHERE id = ? and table_info = ? RETURNING id", uid, tableInfo).Scan(&id).Error
 	if err != nil || id == "" {
 		return id, errors.New("record not found")
 	}
