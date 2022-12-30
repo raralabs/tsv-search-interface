@@ -38,6 +38,10 @@ func NewClient(dsn string) ClientInterface {
 
 // Search takes the slug and search string as input for global searching the value and returns the multiple matching recoreds.
 func (s Client) Search(slug, search string, pagination ...int) ([]models.ResponseSearchIndex, error) {
+	if s.db == nil {
+		fmt.Errorf("%v", errors.New("DB Connection Failed"))
+		return []models.ResponseSearchIndex{}, errors.New("DB Connection Failed")
+	}
 	offset, limit := utils.Pagination(pagination...)
 	search = strings.TrimSpace(search)
 	search = strings.Join(strings.Fields(search), " ")
@@ -53,6 +57,10 @@ func (s Client) Search(slug, search string, pagination ...int) ([]models.Respons
 
 // SearchByField search into the field level and return the needed action.
 func (s Client) SearchByField(slug string, fieldSearch map[string]interface{}, pagination ...int) ([]models.ResponseSearchIndex, error) {
+	if s.db == nil {
+		fmt.Errorf("%v", errors.New("DB Connection Failed"))
+		return []models.ResponseSearchIndex{}, errors.New("DB Connection Failed")
+	}
 	offset, limit := utils.Pagination(pagination...)
 	var model []models.ResponseSearchIndex
 	query := fmt.Sprintf("SELECT id, table_info, action_info FROM %s.search_indices WHERE ", slug)
@@ -71,6 +79,10 @@ func (s Client) SearchByField(slug string, fieldSearch map[string]interface{}, p
 
 // Index takes the slug, uid, table_info, action, search_value as input to create the index in the database.
 func (s Client) Index(slug string, uid string, tableInfo string, action map[string]interface{}, searchValue map[string]interface{}) (string, error) {
+	if s.db == nil {
+		fmt.Errorf("%v", errors.New("DB Connection Failed"))
+		return "", errors.New("DB Connection Failed")
+	}
 	tsv := ""
 	first := true
 	for _, value := range searchValue {
@@ -102,6 +114,10 @@ func (s Client) Index(slug string, uid string, tableInfo string, action map[stri
 }
 
 func (s Client) Delete(slug, uid, tableInfo string) (string, error) {
+	if s.db == nil {
+		fmt.Errorf("%v", errors.New("DB Connection Failed"))
+		return "", errors.New("DB Connection Failed")
+	}
 	var id string
 	query := fmt.Sprintf("DELETE FROM %s.search_indices", slug)
 	err := s.db.Raw(query+" WHERE id = ? and table_info = ? RETURNING id", uid, tableInfo).Scan(&id).Error
@@ -112,5 +128,9 @@ func (s Client) Delete(slug, uid, tableInfo string) (string, error) {
 }
 
 func (s Client) CloseConnection() {
+	if s.db == nil {
+		fmt.Errorf("%v", errors.New("DB Connection Failed"))
+		return
+	}
 	pgdb.CloseConnection(s.db)
 }
