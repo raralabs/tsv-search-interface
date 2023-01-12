@@ -50,7 +50,7 @@ func (s Client) Search(slug, search string, pagination ...int) ([]models.Respons
 	}
 	search = strings.ReplaceAll(search, " ", ":*&")
 	var model []models.ResponseSearchIndex
-	query := fmt.Sprintf("SELECT id, table_info, action_info FROM %s.search_indices ", slug)
+	query := fmt.Sprintf("SELECT id, table_info, action_info FROM \"%s\".search_indices ", slug)
 	err := s.db.Raw(query+" WHERE tsv_text @@ to_tsquery(? || ':*') ORDER BY id OFFSET ? LIMIT ?", search, offset, limit).Scan(&model).Error
 	return model, err
 }
@@ -63,7 +63,7 @@ func (s Client) SearchByField(slug string, fieldSearch map[string]interface{}, p
 	}
 	offset, limit := utils.Pagination(pagination...)
 	var model []models.ResponseSearchIndex
-	query := fmt.Sprintf("SELECT id, table_info, action_info FROM %s.search_indices WHERE ", slug)
+	query := fmt.Sprintf("SELECT id, table_info, action_info FROM \"%s\".search_indices WHERE ", slug)
 	i := 0
 	len := len(fieldSearch)
 	for k, v := range fieldSearch {
@@ -93,7 +93,7 @@ func (s Client) Index(slug string, uid string, tableInfo string, action map[stri
 			tsv += fmt.Sprintf(" %v", value)
 		}
 	}
-	query := fmt.Sprintf("INSERT INTO %s.search_indices(id,table_info,action_info,tsv_text, search_field)", slug)
+	query := fmt.Sprintf("INSERT INTO \"%s\".search_indices(id,table_info,action_info,tsv_text, search_field)", slug)
 	var id string
 	err := s.db.
 		Raw(query+" VALUES(?,?,?,to_tsvector(?),?) ON CONFLICT (id,table_info) DO UPDATE SET action_info=?, search_field=?, tsv_text=to_tsvector(?) RETURNING id",
@@ -119,7 +119,7 @@ func (s Client) Delete(slug, uid, tableInfo string) (string, error) {
 		return "", errors.New("DB Connection Failed")
 	}
 	var id string
-	query := fmt.Sprintf("DELETE FROM %s.search_indices", slug)
+	query := fmt.Sprintf("DELETE FROM \"%s\".search_indices", slug)
 	err := s.db.Raw(query+" WHERE id = ? and table_info = ? RETURNING id", uid, tableInfo).Scan(&id).Error
 	if err != nil || id == "" {
 		return id, errors.New("record not found")
