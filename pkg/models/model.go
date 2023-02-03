@@ -13,6 +13,19 @@ type SearchIndex struct {
 	TsvText     tsvector.TSVector `gorm:"not null"`
 }
 
+type InternalSearchIndex struct {
+	ID          string            `json:"id"`
+	TableInfo   string            `json:"table_info"`
+	SearchField datatypes.JSON    `gorm:"type:jsonb" json:"search_field"`
+	TsvText     tsvector.TSVector `gorm:"not null"`
+}
+
+type RelatedInfo struct {
+	TableInfo    string `json:"table_info"`
+	RelatedTable string `json:"related_info"`
+	ForeignField string `json:"foreign_field"`
+}
+
 type ResponseSearchIndex struct {
 	ID         string         `json:"id"`
 	TableInfo  string         `json:"table_info"`
