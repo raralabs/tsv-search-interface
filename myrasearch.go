@@ -133,18 +133,37 @@ func (s Client) Index(slug string, uid string, tableInfo string, action map[stri
 	return id, nil
 }
 
-// IndexInternal takes the slug, uid, table_info, search_value as input to create the index in the database.
-func (s Client) IndexInternal(slug string, uid string, tableInfo string, searchValue map[string]interface{}) (string, error) {
+func getTableList(s Client, slug string, tableInfo string) []models.RelatedInfo {
 	var tableList []models.RelatedInfo
 	query1 := fmt.Sprintf("SELECT * FROM \"%s\".related_infos ", slug)
 	s.db.Raw(query1+" WHERE table_info = ?", tableInfo).Scan(&tableList)
+	return tableList
+}
+
+func skip(value interface{}, skipId bool) bool {
+	switch value {
+	case "created_at", "modified_at", "creator_id", "modifier_id":
+		return true
+	case "id":
+		return skipId
+	default:
+		return false
+	}
+}
+
+// IndexInternal takes the slug, uid, table_info, search_value as input to create the index in the database.
+func (s Client) IndexInternal(slug string, uid string, tableInfo string, searchValue map[string]interface{}) (string, error) {
 	if s.db == nil {
 		fmt.Errorf("%v", errors.New("DB Connection Failed"))
 		return "", errors.New("DB Connection Failed")
 	}
+	tableList := getTableList(s, slug, tableInfo)
 	tsv := ""
 	first := true
 	for _, value := range searchValue {
+		if skip(value, false) {
+			continue
+		}
 		if first {
 			tsv += fmt.Sprintf("%v", value)
 			first = false
@@ -158,8 +177,15 @@ func (s Client) IndexInternal(slug string, uid string, tableInfo string, searchV
 			if term, ok := searchValue[value1.ForeignField]; ok {
 				data := map[string]interface{}{}
 				query := fmt.Sprintf("SELECT search_field FROM \"%s\".internal_search_indices ", slug)
-				s.db.Raw(query+" WHERE id = ?", term).Scan(&data)
+				id := "id"
+				if strings.ToLower(value1.MappingField) != "id" {
+					id = value1.MappingField
+				}
+				s.db.Raw(query+fmt.Sprintf(" WHERE %s = ?", id), term).Scan(&data)
 				for _, value := range data {
+					if skip(value, true) {
+						continue
+					}
 					if first {
 						tsv += fmt.Sprintf("%v", value)
 						first = false

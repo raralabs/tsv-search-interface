@@ -24,6 +24,7 @@ type RelatedInfo struct {
 	TableInfo    string `json:"table_info"`
 	RelatedTable string `json:"related_info"`
 	ForeignField string `json:"foreign_field"`
+	MappingField string `json:"mapping_field"`
 }
 
 type ResponseSearchIndex struct {
