@@ -178,7 +178,7 @@ func (s Client) IndexInternal(slug string, uid string, tableInfo string, searchV
 				data := map[string]interface{}{}
 				query := fmt.Sprintf("SELECT search_field FROM \"%s\".internal_search_indices ", slug)
 				if strings.ToLower(value1.MappingField) != "id" {
-					s.db.Raw(query+" WHERE table_info=? and search_field ->> ?  = ? order by id desc", value1.RelatedTable, value1.MappingField, term).Scan(&data)
+					s.db.Raw(query+" WHERE table_info=? and search_field ->> ?  = ? order by id desc limit 1", value1.RelatedTable, value1.MappingField, term).Scan(&data)
 				} else {
 					s.db.Raw(query+" WHERE table_info=? and id = ?", value1.RelatedTable, term).Scan(&data)
 				}
