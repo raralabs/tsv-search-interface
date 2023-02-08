@@ -133,16 +133,20 @@ func (s Client) Index(slug string, uid string, tableInfo string, action map[stri
 	return id, nil
 }
 
-func getTableList(s Client, slug string, tableInfo string) []models.RelatedInfo {
+func getTableList(s Client, tableInfo string) []models.RelatedInfo {
 	var tableList []models.RelatedInfo
-	query1 := fmt.Sprintf("SELECT * FROM \"%s\".related_infos ", slug)
-	s.db.Raw(query1+" WHERE table_info = ?", tableInfo).Scan(&tableList)
+	s.db.Raw("SELECT * FROM related_infos WHERE table_info = ?", tableInfo).Scan(&tableList)
 	return tableList
+}
+func getTableInfo(s Client, tableInfo string) models.TableInformation {
+	var tableInformation models.TableInformation
+	s.db.Raw("SELECT * FROM table_information WHERE table_name = ? limit 1", tableInfo).Scan(&tableInformation)
+	return tableInformation
 }
 
 func skip(value interface{}, skipId bool) bool {
 	switch value {
-	case "created_at", "modified_at", "creator_id", "modifier_id":
+	case "created_at", "modified_at", "creator_id", "modifier_id", "deleted_at":
 		return true
 	case "id":
 		return skipId
@@ -157,11 +161,15 @@ func (s Client) IndexInternal(slug string, uid string, tableInfo string, searchV
 		fmt.Errorf("%v", errors.New("DB Connection Failed"))
 		return "", errors.New("DB Connection Failed")
 	}
-	tableList := getTableList(s, slug, tableInfo)
+	tableInformation := getTableInfo(s, tableInfo)
+	tableList := getTableList(s, tableInfo)
 	tsv := ""
 	first := true
 	for _, value := range searchValue {
 		if skip(value, false) {
+			continue
+		}
+		if tableInformation.TableName != "" && !strings.Contains(tableInformation.ColumnName, fmt.Sprintf("%v", value)) {
 			continue
 		}
 		if first {
@@ -182,9 +190,12 @@ func (s Client) IndexInternal(slug string, uid string, tableInfo string, searchV
 				} else {
 					s.db.Raw(query+" WHERE table_info=? and id = ?", value1.RelatedTable, term).Scan(&data)
 				}
-
+				tableInformation = getTableInfo(s, value1.RelatedTable)
 				for _, value := range data {
 					if skip(value, true) {
+						continue
+					}
+					if tableInformation.TableName != "" && !strings.Contains(tableInformation.ColumnName, fmt.Sprintf("%v", value)) {
 						continue
 					}
 					if first {

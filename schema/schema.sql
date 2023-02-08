@@ -25,32 +25,39 @@ CREATE TABLE IF NOT EXISTS related_infos(
     PRIMARY KEY(table_info,related_table,foreign_field,mapping_field)
 );
 
+CREATE TABLE IF NOT EXISTS table_information(
+    table_name TEXT NOT NULL,
+    column_name TEXT NOT NULL,
+    PRIMARY KEY(table_name)
+);
+
+
 CREATE INDEX IF NOT EXISTS "index_related_table_info" on public.related_infos USING btree (table_info);
 CREATE INDEX IF NOT EXISTS "index_related_table" on public.related_infos USING btree (related_table);
 
-CREATE OR REPLACE FUNCTION update_changes()
-    RETURNS TRIGGER
-    LANGUAGE PLPGSQL
-AS
-$$
-DECLARE t record;
-        r record;
-BEGIN
-    for t in SELECT * FROM "public".related_infos WHERE related_table = NEW.table_info loop
-            for r in select * from "public".internal_search_indices where search_field::jsonb ->> t.foreign_field::Text = OLD.id loop
-                    UPDATE "public".internal_search_indices SET tsv_text=concat(jsonb_to_tsvector(r.search_field,'["all"]')::text,' ',jsonb_to_tsvector(NEW.search_field,'["all"]')::text)::tsvector
-                    WHERE id = r.id;
-                end loop;
-        end loop;
-    RETURN NEW;
-END
-$$;
-
-DROP TRIGGER update_data_trigger ON "public".internal_search_indices;
-CREATE TRIGGER update_data_trigger AFTER UPDATE ON "public".internal_search_indices
-    FOR EACH ROW
-    WHEN (pg_trigger_depth() < 1)
-EXECUTE PROCEDURE update_changes();
+-- CREATE OR REPLACE FUNCTION update_changes()
+--     RETURNS TRIGGER
+--     LANGUAGE PLPGSQL
+-- AS
+-- $$
+-- DECLARE t record;
+--         r record;
+-- BEGIN
+--     for t in SELECT * FROM "public".related_infos WHERE related_table = NEW.table_info loop
+--             for r in select * from "public".internal_search_indices where search_field::jsonb ->> t.foreign_field::Text = OLD.id loop
+--                     UPDATE "public".internal_search_indices SET tsv_text=concat(jsonb_to_tsvector(r.search_field,'["all"]')::text,' ',jsonb_to_tsvector(NEW.search_field,'["all"]')::text)::tsvector
+--                     WHERE id = r.id;
+--                 end loop;
+--         end loop;
+--     RETURN NEW;
+-- END
+-- $$;
+--
+-- DROP TRIGGER update_data_trigger ON "public".internal_search_indices;
+-- CREATE TRIGGER update_data_trigger AFTER UPDATE ON "public".internal_search_indices
+--     FOR EACH ROW
+--     WHEN (pg_trigger_depth() < 1)
+-- EXECUTE PROCEDURE update_changes();
 
 
 
@@ -58,7 +65,7 @@ CREATE SCHEMA IF NOT EXISTS myra;
 CREATE TABLE IF NOT EXISTS myra.search_indices (LIKE public.search_indices INCLUDING ALL);
 CREATE TABLE IF NOT EXISTS myra.internal_search_indices (LIKE public.internal_search_indices INCLUDING ALL);
 CREATE TABLE IF NOT EXISTS myra.related_infos (LIKE public.related_infos INCLUDING ALL);
-
+CREATE TABLE IF NOT EXISTS myra.table_information (LIKE public.table_information INCLUDING ALL);
 -- CREATE SCHEMA IF NOT EXISTS rara2;
 -- CREATE TABLE IF NOT EXISTS rara2.search_indices (LIKE public.search_indices INCLUDING ALL);
 -- CREATE TABLE IF NOT EXISTS rara2.internal_search_indices (LIKE public.internal_search_indices INCLUDING ALL);

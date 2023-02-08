@@ -27,6 +27,11 @@ type RelatedInfo struct {
 	MappingField string `json:"mapping_field"`
 }
 
+type TableInformation struct {
+	TableName  string `json:"table_name"`
+	ColumnName string `json:"column_name"`
+}
+
 type ResponseSearchIndex struct {
 	ID         string         `json:"id"`
 	TableInfo  string         `json:"table_info"`
