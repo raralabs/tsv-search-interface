@@ -194,7 +194,7 @@ func (s Client) IndexInternal(slug string, uid string, tableInfo string, searchV
 					continue
 				}
 				data := map[string]interface{}{}
-				err = json.Unmarshal(d, data)
+				err = json.Unmarshal(d, &data)
 				if err != nil {
 					continue
 				}
