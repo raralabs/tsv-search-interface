@@ -193,6 +193,9 @@ func (s Client) IndexInternal(slug string, uid string, tableInfo string, searchV
 					s.db.Raw(query+" WHERE table_info=? and id = ?", value1.RelatedTable, term).Scan(&searchField)
 				}
 				tableInformation = getTableInfo(s, value1.RelatedTable)
+				if value, ok := searchField["search_field"]; !ok || value == nil {
+					continue
+				}
 				data := searchField["search_field"].(map[string]interface{})
 				for key, value := range data {
 					if value == "" {
