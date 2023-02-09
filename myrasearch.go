@@ -1,6 +1,7 @@
 package myra_search
 
 import (
+	"encoding/json"
 	"errors"
 	"fmt"
 	"github.com/joho/godotenv"
@@ -8,7 +9,6 @@ import (
 	"github.com/raralabs/myra-search/pkg/utils"
 	"github.com/raralabs/myra-search/pkg/utils/db/pgdb"
 	"gorm.io/gorm"
-	"reflect"
 	"strings"
 )
 
@@ -167,13 +167,7 @@ func (s Client) IndexInternal(slug string, uid string, tableInfo string, searchV
 	tsv := ""
 	first := true
 	for key, value := range searchValue {
-		if value == "" {
-			continue
-		}
-		if skip(key, false) {
-			continue
-		}
-		if tableInformation.TableName != "" && !strings.Contains(tableInformation.ColumnName, fmt.Sprintf("%v", key)) {
+		if value == "" || skip(key, false) || tableInformation.TableName == "" || !strings.Contains(tableInformation.ColumnName, fmt.Sprintf("%v", key)) {
 			continue
 		}
 		if first {
@@ -183,29 +177,29 @@ func (s Client) IndexInternal(slug string, uid string, tableInfo string, searchV
 			tsv += fmt.Sprintf(" %v", value)
 		}
 	}
+
 	if len(tableList) > 0 {
 		for _, value1 := range tableList {
 			if term, ok := searchValue[value1.ForeignField]; ok {
-				searchField := map[string]interface{}{}
+				var internalSearch models.InternalSearchIndex
 				query := fmt.Sprintf("SELECT search_field FROM \"%s\".internal_search_indices ", slug)
 				if strings.ToLower(value1.MappingField) != "id" {
-					s.db.Raw(query+" WHERE table_info=? and search_field ->> ?  = ? order by id desc limit 1", value1.RelatedTable, value1.MappingField, term).Scan(&searchField)
+					s.db.Raw(query+" WHERE table_info=? and search_field ->> ?  = ? order by id desc limit 1", value1.RelatedTable, value1.MappingField, term).Scan(&internalSearch)
 				} else {
-					s.db.Raw(query+" WHERE table_info=? and id = ?", value1.RelatedTable, term).Scan(&searchField)
+					s.db.Raw(query+" WHERE table_info=? and id = ?", value1.RelatedTable, term).Scan(&internalSearch)
 				}
 				tableInformation = getTableInfo(s, value1.RelatedTable)
-				if value, ok := searchField["search_field"]; !ok || reflect.TypeOf(value).Kind() != reflect.Map {
+				d, err := internalSearch.SearchField.MarshalJSON()
+				if err != nil {
 					continue
 				}
-				data := searchField["search_field"].(map[string]interface{})
+				data := map[string]interface{}{}
+				err = json.Unmarshal(d, data)
+				if err != nil {
+					continue
+				}
 				for key, value := range data {
-					if value == "" {
-						continue
-					}
-					if skip(key, true) {
-						continue
-					}
-					if tableInformation.TableName != "" && !strings.Contains(tableInformation.ColumnName, fmt.Sprintf("%v", key)) {
+					if value == "" || skip(key, false) || tableInformation.TableName == "" || !strings.Contains(tableInformation.ColumnName, fmt.Sprintf("%v", key)) {
 						continue
 					}
 					if first {
@@ -218,6 +212,7 @@ func (s Client) IndexInternal(slug string, uid string, tableInfo string, searchV
 			}
 		}
 	}
+
 	if tsv == "" {
 		return "", nil
 	}
