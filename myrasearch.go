@@ -184,16 +184,16 @@ func (s Client) IndexInternal(slug string, uid string, tableInfo string, searchV
 	}
 	if len(tableList) > 0 {
 		for _, value1 := range tableList {
-			fmt.Println(value1.ForeignField)
 			if term, ok := searchValue[value1.ForeignField]; ok {
-				data := map[string]interface{}{}
+				searchField := map[string]interface{}{}
 				query := fmt.Sprintf("SELECT search_field FROM \"%s\".internal_search_indices ", slug)
 				if strings.ToLower(value1.MappingField) != "id" {
-					s.db.Raw(query+" WHERE table_info=? and search_field ->> ?  = ? order by id desc limit 1", value1.RelatedTable, value1.MappingField, term).Scan(&data)
+					s.db.Raw(query+" WHERE table_info=? and search_field ->> ?  = ? order by id desc limit 1", value1.RelatedTable, value1.MappingField, term).Scan(&searchField)
 				} else {
-					s.db.Raw(query+" WHERE table_info=? and id = ?", value1.RelatedTable, term).Scan(&data)
+					s.db.Raw(query+" WHERE table_info=? and id = ?", value1.RelatedTable, term).Scan(&searchField)
 				}
 				tableInformation = getTableInfo(s, value1.RelatedTable)
+				data := searchField["search_field"].(map[string]interface{})
 				for key, value := range data {
 					if value == "" {
 						continue
