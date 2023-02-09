@@ -16,7 +16,7 @@ func MapToJSON(input interface{}) datatypes.JSON {
 
 func Pagination(opts ...int) (int, int) {
 	offset := 0
-	limit := 15
+	limit := 100
 
 	if len(opts) >= 2 {
 		if opts[1] > 0 {

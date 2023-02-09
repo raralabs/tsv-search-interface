@@ -165,11 +165,14 @@ func (s Client) IndexInternal(slug string, uid string, tableInfo string, searchV
 	tableList := getTableList(s, tableInfo)
 	tsv := ""
 	first := true
-	for _, value := range searchValue {
-		if skip(value, false) {
+	for key, value := range searchValue {
+		if value == "" {
 			continue
 		}
-		if tableInformation.TableName != "" && !strings.Contains(tableInformation.ColumnName, fmt.Sprintf("%v", value)) {
+		if skip(key, false) {
+			continue
+		}
+		if tableInformation.TableName != "" && !strings.Contains(tableInformation.ColumnName, fmt.Sprintf("%v", key)) {
 			continue
 		}
 		if first {
@@ -191,11 +194,14 @@ func (s Client) IndexInternal(slug string, uid string, tableInfo string, searchV
 					s.db.Raw(query+" WHERE table_info=? and id = ?", value1.RelatedTable, term).Scan(&data)
 				}
 				tableInformation = getTableInfo(s, value1.RelatedTable)
-				for _, value := range data {
-					if skip(value, true) {
+				for key, value := range data {
+					if value == "" {
 						continue
 					}
-					if tableInformation.TableName != "" && !strings.Contains(tableInformation.ColumnName, fmt.Sprintf("%v", value)) {
+					if skip(key, true) {
+						continue
+					}
+					if tableInformation.TableName != "" && !strings.Contains(tableInformation.ColumnName, fmt.Sprintf("%v", key)) {
 						continue
 					}
 					if first {
@@ -207,6 +213,9 @@ func (s Client) IndexInternal(slug string, uid string, tableInfo string, searchV
 				}
 			}
 		}
+	}
+	if tsv == "" {
+		return "", nil
 	}
 	query := fmt.Sprintf("INSERT INTO \"%s\".internal_search_indices(id,table_info,tsv_text, search_field)", slug)
 	var id string
