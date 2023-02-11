@@ -9,6 +9,7 @@ import (
 	"github.com/raralabs/myra-search/pkg/utils"
 	"github.com/raralabs/myra-search/pkg/utils/db/pgdb"
 	"gorm.io/gorm"
+	"reflect"
 	"strings"
 )
 
@@ -167,6 +168,10 @@ func (s Client) IndexInternal(slug string, uid string, tableInfo string, searchV
 	tsv := ""
 	first := true
 	for key, value := range searchValue {
+		if reflect.TypeOf(value).Kind() == reflect.String {
+			value = strings.ReplaceAll(value.(string), "\u0000", "")
+			searchValue[key] = value
+		}
 		if value == "" || skip(key, false) || tableInformation.TableName == "" || !strings.Contains(tableInformation.ColumnName, fmt.Sprintf("%v", key)) {
 			continue
 		}
@@ -177,7 +182,7 @@ func (s Client) IndexInternal(slug string, uid string, tableInfo string, searchV
 			tsv += fmt.Sprintf(" %v", value)
 		}
 	}
-
+	fmt.Println(searchValue)
 	if len(tableList) > 0 {
 		for _, value1 := range tableList {
 			if term, ok := searchValue[value1.ForeignField]; ok {
