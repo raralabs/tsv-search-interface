@@ -135,9 +135,15 @@ func (s Client) Index(slug string, uid string, tableInfo string, action map[stri
 	return id, nil
 }
 
-func getTableList(s Client, tableInfo string) []models.RelatedInfo {
+func getTableList(s Client, tableInfo string, counter int) []models.RelatedInfo {
+	if counter >= 5 {
+		return []models.RelatedInfo{}
+	}
 	var tableList []models.RelatedInfo
 	s.db.Raw("SELECT * FROM related_infos WHERE table_info = ?", tableInfo).Scan(&tableList)
+	for _, v := range tableList {
+		tableList = append(tableList, getTableList(s, v.RelatedTable, counter+1)...)
+	}
 	return tableList
 }
 func getTableInfo(s Client, tableInfo string) models.TableInformation {
@@ -164,7 +170,6 @@ func (s Client) IndexInternal(slug string, uid string, tableInfo string, searchV
 		return "", errors.New("DB Connection Failed")
 	}
 	tableInformation := getTableInfo(s, tableInfo)
-	tableList := getTableList(s, tableInfo)
 	tsv := ""
 	first := true
 	for key, value := range searchValue {
@@ -182,39 +187,11 @@ func (s Client) IndexInternal(slug string, uid string, tableInfo string, searchV
 			tsv += fmt.Sprintf(" %v", value)
 		}
 	}
-	fmt.Println(searchValue)
+
+	tableList := getTableList(s, tableInfo, 0)
 	if len(tableList) > 0 {
 		for _, value1 := range tableList {
-			if term, ok := searchValue[value1.ForeignField]; ok {
-				var internalSearch models.InternalSearchIndex
-				query := fmt.Sprintf("SELECT search_field FROM \"%s\".internal_search_indices ", slug)
-				if strings.ToLower(value1.MappingField) != "id" {
-					s.db.Raw(query+" WHERE table_info=? and search_field ->> ?  = ? order by id desc limit 1", value1.RelatedTable, value1.MappingField, term).Scan(&internalSearch)
-				} else {
-					s.db.Raw(query+" WHERE table_info=? and id = ?", value1.RelatedTable, term).Scan(&internalSearch)
-				}
-				tableInformation = getTableInfo(s, value1.RelatedTable)
-				d, err := internalSearch.SearchField.MarshalJSON()
-				if err != nil {
-					continue
-				}
-				data := map[string]interface{}{}
-				err = json.Unmarshal(d, &data)
-				if err != nil {
-					continue
-				}
-				for key, value := range data {
-					if value == "" || skip(key, false) || tableInformation.TableName == "" || !strings.Contains(tableInformation.ColumnName, fmt.Sprintf("%v", key)) {
-						continue
-					}
-					if first {
-						tsv += fmt.Sprintf("%v", value)
-						first = false
-					} else {
-						tsv += fmt.Sprintf(" %v", value)
-					}
-				}
-			}
+			s.getTsv(slug, searchValue, value1, first, &tsv)
 		}
 	}
 
@@ -259,4 +236,38 @@ func (s Client) CloseConnection() {
 		return
 	}
 	pgdb.CloseConnection(s.db)
+}
+
+func (s Client) getTsv(slug string, searchValue map[string]interface{}, value1 models.RelatedInfo, first bool, tsv *string) string {
+	if term, ok := searchValue[value1.ForeignField]; ok {
+		var internalSearch models.InternalSearchIndex
+		query := fmt.Sprintf("SELECT search_field FROM \"%s\".internal_search_indices ", slug)
+		if strings.ToLower(value1.MappingField) != "id" {
+			s.db.Raw(query+" WHERE table_info=? and search_field ->> ?  = ? order by id desc limit 1", value1.RelatedTable, value1.MappingField, term).Scan(&internalSearch)
+		} else {
+			s.db.Raw(query+" WHERE table_info=? and id = ?", value1.RelatedTable, term).Scan(&internalSearch)
+		}
+		tableInformation := getTableInfo(s, value1.RelatedTable)
+		d, err := internalSearch.SearchField.MarshalJSON()
+		if err != nil {
+			return ""
+		}
+		data := map[string]interface{}{}
+		err = json.Unmarshal(d, &data)
+		if err != nil {
+			return ""
+		}
+		for key, value := range data {
+			if value == "" || skip(key, false) || tableInformation.TableName == "" || !strings.Contains(tableInformation.ColumnName, fmt.Sprintf("%v", key)) {
+				continue
+			}
+			if first {
+				*tsv += fmt.Sprintf("%v", value)
+				first = false
+			} else {
+				*tsv += fmt.Sprintf(" %v", value)
+			}
+		}
+	}
+	return *tsv
 }
