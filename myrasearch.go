@@ -135,17 +135,33 @@ func (s Client) Index(slug string, uid string, tableInfo string, action map[stri
 	return id, nil
 }
 
-func getTableList(s Client, tableInfo string, counter int) []models.RelatedInfo {
-	if counter >= 5 {
-		return []models.RelatedInfo{}
+func getTableList(s Client, counter int, tableInfo ...interface{}) []models.RelatedInfoWithLevel {
+	var rF []models.RelatedInfoWithLevel
+	if counter >= 5 || len(tableInfo) == 0 {
+		return rF
 	}
+	l := gl(s, tableInfo...)
+	rF = append(rF, models.RelatedInfoWithLevel{RelatedInfo: l, Counter: counter})
+	var tF []interface{}
+	for _, v := range l {
+		tF = append(tF, v.RelatedTable)
+	}
+	if len(tF) == 0 {
+		return rF
+	}
+	return append(rF, getTableList(s, counter+1, tF...)...)
+}
+
+func gl(s Client, tableInfo ...interface{}) []models.RelatedInfo {
 	var tableList []models.RelatedInfo
-	s.db.Raw("SELECT * FROM related_infos WHERE table_info = ?", tableInfo).Scan(&tableList)
-	for _, v := range tableList {
-		tableList = append(tableList, getTableList(s, v.RelatedTable, counter+1)...)
+	query := "SELECT * FROM related_infos WHERE table_info = ?"
+	for i := 1; i < len(tableInfo); i++ {
+		query += " or table_info = ? "
 	}
+	s.db.Raw(query, tableInfo...).Scan(&tableList)
 	return tableList
 }
+
 func getTableInfo(s Client, tableInfo string) models.TableInformation {
 	var tableInformation models.TableInformation
 	s.db.Raw("SELECT * FROM table_information WHERE table_name = ? limit 1", tableInfo).Scan(&tableInformation)
@@ -172,6 +188,7 @@ func (s Client) IndexInternal(slug string, uid string, tableInfo string, searchV
 	tableInformation := getTableInfo(s, tableInfo)
 	tsv := ""
 	first := true
+	tempSearchValue := map[string]interface{}{}
 	for key, value := range searchValue {
 		if reflect.TypeOf(value).Kind() == reflect.String {
 			value = strings.ReplaceAll(value.(string), "\u0000", "")
@@ -186,12 +203,45 @@ func (s Client) IndexInternal(slug string, uid string, tableInfo string, searchV
 		} else {
 			tsv += fmt.Sprintf(" %v", value)
 		}
+		tempSearchValue[key] = value
 	}
 
-	tableList := getTableList(s, tableInfo, 0)
-	if len(tableList) > 0 {
-		for _, value1 := range tableList {
-			s.getTsv(slug, searchValue, value1, first, &tsv)
+	tL := getTableList(s, 0, tableInfo)
+	if len(tL) > 0 {
+		for _, t := range tL {
+			for _, value1 := range t.RelatedInfo {
+				if term, ok := tempSearchValue[value1.ForeignField]; ok {
+					var internalSearch models.InternalSearchIndex
+					query := fmt.Sprintf("SELECT search_field FROM \"%s\".internal_search_indices ", slug)
+					if strings.ToLower(value1.MappingField) != "id" {
+						s.db.Raw(query+" WHERE table_info=? and search_field ->> ?  = ? order by id desc limit 1", value1.RelatedTable, value1.MappingField, term).Scan(&internalSearch)
+					} else {
+						s.db.Raw(query+" WHERE table_info=? and id = ?", value1.RelatedTable, term).Scan(&internalSearch)
+					}
+					tableInformation := getTableInfo(s, value1.RelatedTable)
+					d, err := internalSearch.SearchField.MarshalJSON()
+					if err != nil {
+						continue
+					}
+					data := map[string]interface{}{}
+					err = json.Unmarshal(d, &data)
+					if err != nil {
+						continue
+					}
+					for key, value := range data {
+						if value == "" || skip(key, false) || tableInformation.TableName == "" || !strings.Contains(tableInformation.ColumnName, fmt.Sprintf("%v", key)) {
+							continue
+						}
+						if first {
+							tsv += fmt.Sprintf("%v", value)
+							first = false
+						} else {
+							tsv += fmt.Sprintf(" %v", value)
+						}
+						tempSearchValue[key] = value
+					}
+				}
+			}
 		}
 	}
 
@@ -236,38 +286,4 @@ func (s Client) CloseConnection() {
 		return
 	}
 	pgdb.CloseConnection(s.db)
-}
-
-func (s Client) getTsv(slug string, searchValue map[string]interface{}, value1 models.RelatedInfo, first bool, tsv *string) string {
-	if term, ok := searchValue[value1.ForeignField]; ok {
-		var internalSearch models.InternalSearchIndex
-		query := fmt.Sprintf("SELECT search_field FROM \"%s\".internal_search_indices ", slug)
-		if strings.ToLower(value1.MappingField) != "id" {
-			s.db.Raw(query+" WHERE table_info=? and search_field ->> ?  = ? order by id desc limit 1", value1.RelatedTable, value1.MappingField, term).Scan(&internalSearch)
-		} else {
-			s.db.Raw(query+" WHERE table_info=? and id = ?", value1.RelatedTable, term).Scan(&internalSearch)
-		}
-		tableInformation := getTableInfo(s, value1.RelatedTable)
-		d, err := internalSearch.SearchField.MarshalJSON()
-		if err != nil {
-			return ""
-		}
-		data := map[string]interface{}{}
-		err = json.Unmarshal(d, &data)
-		if err != nil {
-			return ""
-		}
-		for key, value := range data {
-			if value == "" || skip(key, false) || tableInformation.TableName == "" || !strings.Contains(tableInformation.ColumnName, fmt.Sprintf("%v", key)) {
-				continue
-			}
-			if first {
-				*tsv += fmt.Sprintf("%v", value)
-				first = false
-			} else {
-				*tsv += fmt.Sprintf(" %v", value)
-			}
-		}
-	}
-	return *tsv
 }

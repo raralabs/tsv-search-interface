@@ -27,6 +27,11 @@ type RelatedInfo struct {
 	MappingField string `json:"mapping_field"`
 }
 
+type RelatedInfoWithLevel struct {
+	RelatedInfo []RelatedInfo
+	Counter     int
+}
+
 type TableInformation struct {
 	TableName  string `json:"table_name"`
 	ColumnName string `json:"column_name"`
