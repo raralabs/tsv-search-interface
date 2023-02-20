@@ -350,6 +350,9 @@ func (s Client) IndexBatchInternal(slug string, tableInfo string, input []models
 			valueArgs = append(valueArgs, tsv)
 			valueArgs = append(valueArgs, utils.MapToJSON(sv.SearchValue))
 		}
+		if len(valueStrings) == 0 {
+			continue
+		}
 		query := fmt.Sprintf("INSERT INTO \"%s\".internal_search_indices(id,table_info,tsv_text, search_field) VALUES %s ", slug, strings.Join(valueStrings, ","))
 		var id string
 		err := s.db.Debug().

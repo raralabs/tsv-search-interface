@@ -61,9 +61,9 @@ CREATE INDEX IF NOT EXISTS "index_related_table" on public.related_infos USING b
 
 
 
-CREATE SCHEMA IF NOT EXISTS myra;
-CREATE TABLE IF NOT EXISTS myra.search_indices (LIKE public.search_indices INCLUDING ALL);
-CREATE TABLE IF NOT EXISTS myra.internal_search_indices (LIKE public.internal_search_indices INCLUDING ALL);
+CREATE SCHEMA IF NOT EXISTS "nefscun-prod4";
+CREATE TABLE IF NOT EXISTS "nefscun-prod4".search_indices (LIKE public.search_indices INCLUDING ALL);
+CREATE TABLE IF NOT EXISTS "nefscun-prod4".internal_search_indices (LIKE public.internal_search_indices INCLUDING ALL);
 CREATE TABLE IF NOT EXISTS myra.related_infos (LIKE public.related_infos INCLUDING ALL);
 CREATE TABLE IF NOT EXISTS myra.table_information (LIKE public.table_information INCLUDING ALL);
 -- CREATE SCHEMA IF NOT EXISTS rara2;
