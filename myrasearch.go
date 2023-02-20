@@ -278,10 +278,16 @@ func (s Client) IndexBatchInternal(slug string, tableInfo string, input []models
 	}
 	tableInformation := getTableInfo(s, tableInfo)
 	page := int64(math.Ceil(float64(len(input)) / float64(BatchSize)))
-	for i := int64(1); i <= page; i++ {
+	for i := int64(0); i < page; i++ {
+		var slice []models.BatchIndexInput
+		if i == page-1 {
+			slice = input[i*BatchSize:]
+		} else {
+			slice = input[i*BatchSize : (i+1)*BatchSize]
+		}
 		valueStrings := make([]string, 0, BatchSize)
 		valueArgs := make([]interface{}, 0, BatchSize*4)
-		for _, sv := range input {
+		for _, sv := range slice {
 			tsv := ""
 			first := true
 			tempSearchValue := map[string]interface{}{}
