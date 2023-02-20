@@ -1,6 +1,7 @@
 package pgdb
 
 import (
+	"github.com/jackc/pgx/v4"
 	"gorm.io/driver/postgres"
 	"gorm.io/gorm"
 	"log"
@@ -15,6 +16,7 @@ func ConnectDatabase(dsn string) *gorm.DB {
 		log.Println(err)
 		return nil
 	}
+	db.Logger.LogMode(pgx.LogLevelNone)
 	return db
 }
 
