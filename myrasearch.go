@@ -9,6 +9,7 @@ import (
 	"github.com/raralabs/myra-search/pkg/utils"
 	"github.com/raralabs/myra-search/pkg/utils/db/pgdb"
 	"gorm.io/gorm"
+	"math"
 	"reflect"
 	"strings"
 )
@@ -20,6 +21,7 @@ type ClientInterface interface {
 	SearchByField(slug string, fieldSearch map[string]interface{}, pagination ...int) ([]models.ResponseSearchIndex, error)
 	Index(slug string, uid string, tableInfo string, action map[string]interface{}, searchValue map[string]interface{}) (string, error)
 	IndexInternal(slug string, uid string, tableInfo string, searchValue map[string]interface{}) (string, error)
+	IndexBatchInternal(slug string, tableInfo string, input []models.BatchIndexInput) error
 	Delete(slug, uid, tableInfo string) (string, error)
 	CloseConnection()
 }
@@ -27,6 +29,8 @@ type ClientInterface interface {
 type Client struct {
 	db *gorm.DB
 }
+
+const BatchSize = 10000
 
 // NewClient initializes the Client and database and returns the ClientInterface instance.
 func NewClient(dsn string) ClientInterface {
@@ -264,6 +268,98 @@ func (s Client) IndexInternal(slug string, uid string, tableInfo string, searchV
 		return "", err
 	}
 	return id, nil
+}
+
+// IndexBatchInternal takes the slug, uid, table_info, search_value as input to create the index in the database.
+func (s Client) IndexBatchInternal(slug string, tableInfo string, input []models.BatchIndexInput) error {
+	if s.db == nil {
+		fmt.Errorf("%v", errors.New("DB Connection Failed"))
+		return errors.New("DB Connection Failed")
+	}
+	tableInformation := getTableInfo(s, tableInfo)
+	page := int64(math.Ceil(float64(len(input)) / float64(BatchSize)))
+	for i := int64(1); i <= page; i++ {
+		valueStrings := make([]string, 0, BatchSize)
+		valueArgs := make([]interface{}, 0, BatchSize*4)
+		for _, sv := range input {
+			tsv := ""
+			first := true
+			tempSearchValue := map[string]interface{}{}
+			for key, value := range sv.SearchValue {
+				if reflect.TypeOf(value).Kind() == reflect.String {
+					value = strings.ReplaceAll(value.(string), "\u0000", "")
+					sv.SearchValue[key] = value
+				}
+				if value == "" || skip(key, false) || tableInformation.TableName == "" || !strings.Contains(tableInformation.ColumnName, fmt.Sprintf("%v", key)) {
+					continue
+				}
+				if first {
+					tsv += fmt.Sprintf("%v", value)
+					first = false
+				} else {
+					tsv += fmt.Sprintf(" %v", value)
+				}
+				tempSearchValue[key] = value
+			}
+
+			tL := getTableList(s, 0, tableInfo)
+			if len(tL) > 0 {
+				for _, t := range tL {
+					for _, value1 := range t.RelatedInfo {
+						if term, ok := tempSearchValue[value1.ForeignField]; ok {
+							var internalSearch models.InternalSearchIndex
+							query := fmt.Sprintf("SELECT search_field FROM \"%s\".internal_search_indices ", slug)
+							if strings.ToLower(value1.MappingField) != "id" {
+								s.db.Raw(query+" WHERE table_info=? and search_field ->> ?  = ? order by id desc limit 1", value1.RelatedTable, value1.MappingField, term).Scan(&internalSearch)
+							} else {
+								s.db.Raw(query+" WHERE table_info=? and id = ?", value1.RelatedTable, term).Scan(&internalSearch)
+							}
+							tableInformation := getTableInfo(s, value1.RelatedTable)
+							d, err := internalSearch.SearchField.MarshalJSON()
+							if err != nil {
+								continue
+							}
+							data := map[string]interface{}{}
+							err = json.Unmarshal(d, &data)
+							if err != nil {
+								continue
+							}
+							for key, value := range data {
+								if value == "" || skip(key, false) || tableInformation.TableName == "" || !strings.Contains(tableInformation.ColumnName, fmt.Sprintf("%v", key)) {
+									continue
+								}
+								if first {
+									tsv += fmt.Sprintf("%v", value)
+									first = false
+								} else {
+									tsv += fmt.Sprintf(" %v", value)
+								}
+								tempSearchValue[key] = value
+							}
+						}
+					}
+				}
+			}
+
+			if tsv == "" {
+				continue
+			}
+			valueStrings = append(valueStrings, "(?,?,to_tsvector(?),?)")
+			valueArgs = append(valueArgs, sv.UID)
+			valueArgs = append(valueArgs, tableInfo)
+			valueArgs = append(valueArgs, tsv)
+			valueArgs = append(valueArgs, utils.MapToJSON(sv.SearchValue))
+		}
+		query := fmt.Sprintf("INSERT INTO \"%s\".internal_search_indices(id,table_info,tsv_text, search_field) VALUES %s ", slug, strings.Join(valueStrings, ","))
+		var id string
+		err := s.db.Debug().
+			Raw(query+" ON CONFLICT (id,table_info) DO UPDATE SET tsv_text = EXCLUDED.tsv_text, search_field = EXCLUDED.search_field", valueArgs...).
+			Scan(&id).Error
+		if err != nil {
+			return err
+		}
+	}
+	return nil
 }
 
 func (s Client) Delete(slug, uid, tableInfo string) (string, error) {

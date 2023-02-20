@@ -42,3 +42,8 @@ type ResponseSearchIndex struct {
 	TableInfo  string         `json:"table_info"`
 	ActionInfo datatypes.JSON `json:"action_info"`
 }
+
+type BatchIndexInput struct {
+	UID         string                 `json:"uid"`
+	SearchValue map[string]interface{} `json:"search_value"`
+}
