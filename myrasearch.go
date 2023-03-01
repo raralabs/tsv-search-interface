@@ -207,14 +207,14 @@ func (s Client) IndexInternal(slug string, uid string, tableInfo string, searchV
 		} else {
 			tsv += fmt.Sprintf(" %v", value)
 		}
-		tempSearchValue[key] = value
+		tempSearchValue[fmt.Sprintf("%s.%s", tableInfo, key)] = value
 	}
 
 	tL := getTableList(s, 0, tableInfo)
 	if len(tL) > 0 {
 		for _, t := range tL {
 			for _, value1 := range t.RelatedInfo {
-				if term, ok := tempSearchValue[value1.ForeignField]; ok {
+				if term, ok := tempSearchValue[fmt.Sprintf("%s.%s", value1.TableInfo, value1.ForeignField)]; ok {
 					var internalSearch models.InternalSearchIndex
 					query := fmt.Sprintf("SELECT search_field FROM \"%s\".internal_search_indices ", slug)
 					if strings.ToLower(value1.MappingField) != "id" {
@@ -242,7 +242,7 @@ func (s Client) IndexInternal(slug string, uid string, tableInfo string, searchV
 						} else {
 							tsv += fmt.Sprintf(" %v", value)
 						}
-						tempSearchValue[key] = value
+						tempSearchValue[fmt.Sprintf("%s.%s", tableInformation.TableName, key)] = value
 					}
 				}
 			}
@@ -305,14 +305,14 @@ func (s Client) IndexBatchInternal(slug string, tableInfo string, input []models
 				} else {
 					tsv += fmt.Sprintf(" %v", value)
 				}
-				tempSearchValue[key] = value
+				tempSearchValue[fmt.Sprintf("%s.%s", tableInfo, key)] = value
 			}
 
 			tL := getTableList(s, 0, tableInfo)
 			if len(tL) > 0 {
 				for _, t := range tL {
 					for _, value1 := range t.RelatedInfo {
-						if term, ok := tempSearchValue[value1.ForeignField]; ok {
+						if term, ok := tempSearchValue[fmt.Sprintf("%s.%s", value1.TableInfo, value1.ForeignField)]; ok {
 							var internalSearch models.InternalSearchIndex
 							query := fmt.Sprintf("SELECT search_field FROM \"%s\".internal_search_indices ", slug)
 							if strings.ToLower(value1.MappingField) != "id" {
@@ -340,7 +340,7 @@ func (s Client) IndexBatchInternal(slug string, tableInfo string, input []models
 								} else {
 									tsv += fmt.Sprintf(" %v", value)
 								}
-								tempSearchValue[key] = value
+								tempSearchValue[fmt.Sprintf("%s.%s", tableInformation.TableName, key)] = value
 							}
 						}
 					}
