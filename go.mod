@@ -1,4 +1,4 @@
-module github.com/raralabs/tsv_search_interface
+module github.com/raralabs/tsv-search-interface
 
 go 1.19
 
