@@ -1,4 +1,4 @@
-module github.com/raralabs/myra-search
+module github.com/raralabs/tsv_search_interface
 
 go 1.19
 

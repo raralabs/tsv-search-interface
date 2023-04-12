@@ -1,13 +1,13 @@
-package myra_search
+package tsv_search_interface
 
 import (
 	"encoding/json"
 	"errors"
 	"fmt"
 	"github.com/joho/godotenv"
-	"github.com/raralabs/myra-search/pkg/models"
-	"github.com/raralabs/myra-search/pkg/utils"
-	"github.com/raralabs/myra-search/pkg/utils/db/pgdb"
+	"github.com/raralabs/tsv_search_interface/pkg/models"
+	"github.com/raralabs/tsv_search_interface/pkg/utils"
+	"github.com/raralabs/tsv_search_interface/pkg/utils/db/pgdb"
 	"gorm.io/gorm"
 	"math"
 	"reflect"
