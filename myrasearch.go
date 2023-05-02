@@ -58,7 +58,7 @@ func (s Client) Search(slug, search string, pagination ...int) ([]models.Respons
 	search = strings.ReplaceAll(search, " ", ":*&")
 	var model []models.ResponseSearchIndex
 	query := fmt.Sprintf("SELECT id, table_info, action_info FROM \"%s\".search_indices ", slug)
-	err := s.db.Raw(query+" WHERE tsv_text @@ to_tsquery(? || ':*') ORDER BY id OFFSET ? LIMIT ?", search, offset, limit).Scan(&model).Error
+	err := s.db.Raw(query+" WHERE tsv_text @@ to_tsquery('simple',? || ':*') ORDER BY id OFFSET ? LIMIT ?", search, offset, limit).Scan(&model).Error
 	return model, err
 }
 
@@ -77,7 +77,7 @@ func (s Client) InternalSearch(slug, search string, tableInfo string, pagination
 	search = strings.ReplaceAll(search, " ", ":*&")
 	var model []string
 	query := fmt.Sprintf("SELECT id FROM \"%s\".internal_search_indices ", slug)
-	err := s.db.Raw(query+" WHERE table_info = ? and tsv_text @@ to_tsquery(? || ':*') ORDER BY id OFFSET ? LIMIT ?", tableInfo, search, offset, limit).Scan(&model).Error
+	err := s.db.Raw(query+" WHERE table_info = ? and tsv_text @@ to_tsquery('simple',? || ':*') ORDER BY id OFFSET ? LIMIT ?", tableInfo, search, offset, limit).Scan(&model).Error
 	return model, err
 }
 
@@ -121,8 +121,9 @@ func (s Client) Index(slug string, uid string, tableInfo string, action map[stri
 	}
 	query := fmt.Sprintf("INSERT INTO \"%s\".search_indices(id,table_info,action_info,tsv_text, search_field)", slug)
 	var id string
+	fmt.Printf("%+v", tsv)
 	err := s.db.
-		Raw(query+" VALUES(?,?,?,to_tsvector(?),?) ON CONFLICT (id,table_info) DO UPDATE SET action_info=?, search_field=?, tsv_text=to_tsvector(?) RETURNING id",
+		Raw(query+" VALUES(?,?,?,to_tsvector('simple',?),?) ON CONFLICT (id,table_info) DO UPDATE SET action_info=?, search_field=?, tsv_text=to_tsvector('simple',?) RETURNING id",
 			uid,
 			tableInfo,
 			utils.MapToJSON(action),
@@ -255,7 +256,7 @@ func (s Client) IndexInternal(slug string, uid string, tableInfo string, searchV
 	query := fmt.Sprintf("INSERT INTO \"%s\".internal_search_indices(id,table_info,tsv_text, search_field)", slug)
 	var id string
 	err := s.db.
-		Raw(query+" VALUES(?,?,to_tsvector(?),?) ON CONFLICT (id,table_info) DO UPDATE SET search_field=?, tsv_text=to_tsvector(?) RETURNING id",
+		Raw(query+" VALUES(?,?,to_tsvector('simple'?),?) ON CONFLICT (id,table_info) DO UPDATE SET search_field=?, tsv_text=to_tsvector('simple',?) RETURNING id",
 			uid,
 			tableInfo,
 			tsv,
@@ -350,7 +351,7 @@ func (s Client) IndexBatchInternal(slug string, tableInfo string, input []models
 			if tsv == "" {
 				continue
 			}
-			valueStrings = append(valueStrings, "(?,?,to_tsvector(?),?)")
+			valueStrings = append(valueStrings, "(?,?,to_tsvector('simple',?),?)")
 			valueArgs = append(valueArgs, sv.UID)
 			valueArgs = append(valueArgs, tableInfo)
 			valueArgs = append(valueArgs, tsv)
