@@ -256,7 +256,7 @@ func (s Client) IndexInternal(slug string, uid string, tableInfo string, searchV
 	query := fmt.Sprintf("INSERT INTO \"%s\".internal_search_indices(id,table_info,tsv_text, search_field)", slug)
 	var id string
 	err := s.db.
-		Raw(query+" VALUES(?,?,to_tsvector('simple'?),?) ON CONFLICT (id,table_info) DO UPDATE SET search_field=?, tsv_text=to_tsvector('simple',?) RETURNING id",
+		Raw(query+" VALUES(?,?,to_tsvector('simple',?),?) ON CONFLICT (id,table_info) DO UPDATE SET search_field=?, tsv_text=to_tsvector('simple',?) RETURNING id",
 			uid,
 			tableInfo,
 			tsv,
