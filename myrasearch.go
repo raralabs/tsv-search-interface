@@ -4,14 +4,15 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"math"
+	"reflect"
+	"strings"
+
 	"github.com/joho/godotenv"
 	"github.com/raralabs/tsv-search-interface/pkg/models"
 	"github.com/raralabs/tsv-search-interface/pkg/utils"
 	"github.com/raralabs/tsv-search-interface/pkg/utils/db/pgdb"
 	"gorm.io/gorm"
-	"math"
-	"reflect"
-	"strings"
 )
 
 // ClientInterface exposes the needed methods to external usage
@@ -58,7 +59,7 @@ func (s Client) Search(slug, search string, pagination ...int) ([]models.Respons
 	search = strings.ReplaceAll(search, " ", ":*&")
 	var model []models.ResponseSearchIndex
 	query := fmt.Sprintf("SELECT id, table_info, action_info FROM \"%s\".search_indices ", slug)
-	err := s.db.Raw(query+" WHERE tsv_text @@ to_tsquery('simple',? || ':*') ORDER BY id OFFSET ? LIMIT ?", search, offset, limit).Scan(&model).Error
+	err := s.db.Raw(query+" WHERE tsv_text @@ to_tsquery('simple',? || ':*') ORDER BY ts_rank_cd(tsv_text, to_tsquery('simple','ho' || ':*')) DESC OFFSET ? LIMIT ?", search, offset, limit).Scan(&model).Error
 	return model, err
 }
 
@@ -77,7 +78,7 @@ func (s Client) InternalSearch(slug, search string, tableInfo string, pagination
 	search = strings.ReplaceAll(search, " ", ":*&")
 	var model []string
 	query := fmt.Sprintf("SELECT id FROM \"%s\".internal_search_indices ", slug)
-	err := s.db.Raw(query+" WHERE table_info = ? and tsv_text @@ to_tsquery('simple',? || ':*') ORDER BY id OFFSET ? LIMIT ?", tableInfo, search, offset, limit).Scan(&model).Error
+	err := s.db.Raw(query+" WHERE table_info = ? and tsv_text @@ to_tsquery('simple',? || ':*') ORDER BY ts_rank_cd(tsv_text, to_tsquery('simple','ho' || ':*')) DESC OFFSET ? LIMIT ?", tableInfo, search, offset, limit).Scan(&model).Error
 	return model, err
 }
 
