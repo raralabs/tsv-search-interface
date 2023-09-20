@@ -24,6 +24,7 @@ type ClientInterface interface {
 	IndexInternal(slug string, uid string, tableInfo string, searchValue map[string]interface{}) (string, error)
 	IndexBatchInternal(slug string, tableInfo string, input []models.BatchIndexInput) error
 	Delete(slug, uid, tableInfo string) (string, error)
+	ClearIndex(slug string, isInternal bool) error
 	CloseConnection()
 }
 
@@ -32,6 +33,8 @@ type Client struct {
 }
 
 const BatchSize = 10000
+
+var dbErr = errors.New("DB Connection Failed")
 
 // NewClient initializes the Client and database and returns the ClientInterface instance.
 func NewClient(dsn string) ClientInterface {
@@ -47,8 +50,7 @@ func NewClient(dsn string) ClientInterface {
 // Search takes the slug and search string as input for global searching the value and returns the multiple matching recoreds.
 func (s Client) Search(slug, search string, pagination ...int) ([]models.ResponseSearchIndex, error) {
 	if s.db == nil {
-		fmt.Errorf("%v", errors.New("DB Connection Failed"))
-		return []models.ResponseSearchIndex{}, errors.New("DB Connection Failed")
+		return []models.ResponseSearchIndex{}, dbErr
 	}
 	offset, limit := utils.Pagination(pagination...)
 	search = strings.TrimSpace(search)
@@ -66,8 +68,7 @@ func (s Client) Search(slug, search string, pagination ...int) ([]models.Respons
 // InternalSearch takes the slug and search string as input for global searching the value and returns the multiple matching recoreds.
 func (s Client) InternalSearch(slug, search string, tableInfo string, pagination ...int) ([]string, error) {
 	if s.db == nil {
-		fmt.Errorf("%v", errors.New("DB Connection Failed"))
-		return []string{}, errors.New("DB Connection Failed")
+		return []string{}, dbErr
 	}
 	offset, limit := utils.Pagination(pagination...)
 	search = strings.TrimSpace(search)
@@ -85,8 +86,7 @@ func (s Client) InternalSearch(slug, search string, tableInfo string, pagination
 // SearchByField search into the field level and return the needed action.
 func (s Client) SearchByField(slug string, fieldSearch map[string]interface{}, pagination ...int) ([]models.ResponseSearchIndex, error) {
 	if s.db == nil {
-		fmt.Errorf("%v", errors.New("DB Connection Failed"))
-		return []models.ResponseSearchIndex{}, errors.New("DB Connection Failed")
+		return []models.ResponseSearchIndex{}, dbErr
 	}
 	offset, limit := utils.Pagination(pagination...)
 	var model []models.ResponseSearchIndex
@@ -107,8 +107,7 @@ func (s Client) SearchByField(slug string, fieldSearch map[string]interface{}, p
 // Index takes the slug, uid, table_info, action, search_value as input to create the index in the database.
 func (s Client) Index(slug string, uid string, tableInfo string, action map[string]interface{}, searchValue map[string]interface{}) (string, error) {
 	if s.db == nil {
-		fmt.Errorf("%v", errors.New("DB Connection Failed"))
-		return "", errors.New("DB Connection Failed")
+		return "", dbErr
 	}
 	tsv := ""
 	first := true
@@ -188,8 +187,7 @@ func skip(value interface{}, skipId bool) bool {
 // IndexInternal takes the slug, uid, table_info, search_value as input to create the index in the database.
 func (s Client) IndexInternal(slug string, uid string, tableInfo string, searchValue map[string]interface{}) (string, error) {
 	if s.db == nil {
-		fmt.Errorf("%v", errors.New("DB Connection Failed"))
-		return "", errors.New("DB Connection Failed")
+		return "", dbErr
 	}
 	tableInformation := getTableInfo(s, tableInfo)
 	tsv := ""
@@ -275,8 +273,7 @@ func (s Client) IndexInternal(slug string, uid string, tableInfo string, searchV
 // IndexBatchInternal takes the slug, uid, table_info, search_value as input to create the index in the database.
 func (s Client) IndexBatchInternal(slug string, tableInfo string, input []models.BatchIndexInput) error {
 	if s.db == nil {
-		fmt.Errorf("%v", errors.New("DB Connection Failed"))
-		return errors.New("DB Connection Failed")
+		return dbErr
 	}
 	tableInformation := getTableInfo(s, tableInfo)
 	page := int64(math.Ceil(float64(len(input)) / float64(BatchSize)))
@@ -375,8 +372,7 @@ func (s Client) IndexBatchInternal(slug string, tableInfo string, input []models
 
 func (s Client) Delete(slug, uid, tableInfo string) (string, error) {
 	if s.db == nil {
-		fmt.Errorf("%v", errors.New("DB Connection Failed"))
-		return "", errors.New("DB Connection Failed")
+		return "", dbErr
 	}
 	var id string
 	query := fmt.Sprintf("DELETE FROM \"%s\".search_indices", slug)
@@ -389,8 +385,23 @@ func (s Client) Delete(slug, uid, tableInfo string) (string, error) {
 
 func (s Client) CloseConnection() {
 	if s.db == nil {
-		fmt.Errorf("%v", errors.New("DB Connection Failed"))
 		return
 	}
 	pgdb.CloseConnection(s.db)
+}
+
+func (s Client) ClearIndex(slug string, isInternal bool) error {
+	if s.db == nil {
+		return dbErr
+	}
+	table := "search_indices"
+	if isInternal {
+		table = "internal_search_indices"
+	}
+
+	err := s.db.Exec(fmt.Sprintf("DELETE FROM \"%s\".%s", slug, table)).Error
+	if err != nil {
+		return errors.New("failed deleting records")
+	}
+	return nil
 }
